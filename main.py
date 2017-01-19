@@ -1,73 +1,196 @@
-import glob
-from time import sleep
-from curses import wrapper
-import curses
-import serial
-
-def main(stdscr):
-    # setup
-    curses.noecho()
-    curses.cbreak()
-    curses.start_color()
-    stdscr.keypad(True)
-
-    # setup serial
-    port = '/dev/ttyUSB0'
-    baudrate = 115200
-
-    with_serial = False
-
-    if with_serial:
-        ser = serial.Serial(port, baudrate)
-
-    title_win = curses.newwin(3, curses.COLS - 1, 0, 0)
-    input_win = curses.newwin(1, curses.COLS - 1, 3, 1)
-
-    title = "Serial for HUMANS! Press q to quit."
-    center_x = int((curses.COLS - 1) / 2 - len(title) / 2)
-    title_win.addstr(1, center_x, title)
-    title_win.refresh()
-
-    input_win.addstr('input: ')
-
-    msg = ''
-    while True:
-        key = input_win.getch()
-        maxy, maxx = input_win.getmaxyx()
-        y, x = input_win.getyx()
-
-        if key == ord('q'):
-            break
-        elif key == curses.KEY_ENTER:
-            # send over serial
-            if with_serial:
-                ser.write(msg)
-            msg = ''
-            input_win.clear()
-            input_win.refresh()
-        elif key == 127:
-
-            input_win.delch(y, x - 1)
-            input_win.refresh()
-        elif 31 < key < 127:
-            # stop at end of window
-            if x == maxx - 1:
-                continue
-
-            c = chr(key)
-            input_win.addstr(c)
-            input_win.refresh()
-
-            msg += c
+from asciimatics.widgets import Frame, ListBox, Layout, Divider, Text, TextBox, Button, Widget
+from asciimatics.scene import Scene
+from asciimatics.screen import Screen
+from asciimatics.exceptions import ResizeScreenError, NextScene, StopApplication
+from asciimatics.event import KeyboardEvent, MouseEvent
+import sys
+import sqlite3
 
 
+class ContactModel(object):
+    def __init__(self):
+        # Create a database in RAM
+        self._db = sqlite3.connect(':memory:')
+        self._db.row_factory = sqlite3.Row
 
-    # teardown
-    curses.nocbreak()
-    stdscr.keypad(False)
-    curses.echo()
-    curses.endwin()
+        # Create the basic contact table.
+        self._db.cursor().execute('''
+            CREATE TABLE contacts(
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                phone TEXT,
+                address TEXT,
+                email TEXT,
+                notes TEXT)
+        ''')
+        self._db.commit()
+
+        # Current contact when editing.
+        self.current_id = None
+
+    def add(self, contact):
+        self._db.cursor().execute('''
+            INSERT INTO contacts(name, phone, address, email, notes)
+            VALUES(:name, :phone, :address, :email, :notes)''',
+                                  contact)
+        self._db.commit()
+
+    def get_summary(self):
+        return self._db.cursor().execute(
+            "SELECT name, id from contacts").fetchall()
+
+    def get_contact(self, contact_id):
+        return self._db.cursor().execute(
+            "SELECT * from contacts where id=?", str(contact_id)).fetchone()
+
+    def get_current_contact(self):
+        if self.current_id is None:
+            return {}
+        else:
+            return self.get_contact(self.current_id)
+
+    def update_current_contact(self, details):
+        if self.current_id is None:
+            self.add(details)
+        else:
+            self._db.cursor().execute('''
+                UPDATE contacts SET name=:name, phone=:phone, address=:address,
+                email=:email, notes=:notes WHERE id=:id''',
+                                      details)
+            self._db.commit()
+
+    def delete_contact(self, contact_id):
+        self._db.cursor().execute('''
+            DELETE FROM contacts WHERE id=:id''', {"id": contact_id})
+        self._db.commit()
 
 
-if __name__ == '__main__':
-    wrapper(main)
+class ListView(Frame):
+    def __init__(self, screen, model):
+        super(ListView, self).__init__(screen,
+                                       screen.height * 2 // 3,
+                                       screen.width * 2 // 3,
+                                       on_load=self._reload_list,
+                                       hover_focus=True,
+                                       title="Contact List")
+        # Save off the model that accesses the contacts database.
+        self._model = model
+
+        # Create the form for displaying the list of contacts.
+        self._list_view = ListBox(
+            Widget.FILL_FRAME,
+            model.get_summary(),
+            name="contacts",
+            on_change=self._on_pick)
+        self._edit_button = Button("Edit", self._edit)
+        self._delete_button = Button("Delete", self._delete)
+        layout = Layout([100], fill_frame=True)
+        self.add_layout(layout)
+        layout.add_widget(self._list_view)
+        layout.add_widget(Divider())
+        layout2 = Layout([1, 1, 1, 1])
+        self.add_layout(layout2)
+        layout2.add_widget(Button("Add", self._add), 0)
+        layout2.add_widget(self._edit_button, 1)
+        layout2.add_widget(self._delete_button, 2)
+        layout2.add_widget(Button("Quit", self._quit), 3)
+        self.fix()
+        self._on_pick()
+
+    def _on_pick(self):
+        self._edit_button.disabled = self._list_view.value is None
+        self._delete_button.disabled = self._list_view.value is None
+
+    def _reload_list(self):
+        self._list_view.options = self._model.get_summary()
+        self._model.current_id = None
+
+    def _add(self):
+        self._model.current_id = None
+        raise NextScene("Edit Contact")
+
+    def _edit(self):
+        self.save()
+        self._model.current_id = self.data["contacts"]
+        raise NextScene("Edit Contact")
+
+    def _delete(self):
+        self.save()
+        self._model.delete_contact(self.data["contacts"])
+        self._reload_list()
+
+    @staticmethod
+    def _quit():
+        raise StopApplication("User pressed quit")
+
+
+class InputText(Text):
+
+    KEY_ENTER = 10
+
+    def __init__(self, label=None, name=None, on_change=None):
+        super(InputText, self).__init__(label, name, on_change)
+
+    def process_event(self, event):
+        if isinstance(event, KeyboardEvent):
+            if event.key_code == InputText.KEY_ENTER:
+                # ser.write(self.value)
+                self.value = ""
+                self.reset()
+            else:
+                super().process_event(event)
+        else:
+            super().process_event(event)
+
+
+class ContactView(Frame):
+    def __init__(self, screen, model):
+        super(ContactView, self).__init__(screen,
+                                          screen.height,
+                                          screen.width,
+                                          hover_focus=True,
+                                          title="Serial For Humans",
+                                          reduce_cpu=True)
+        # Save off the model that accesses the contacts database.
+        self._model = model
+
+        # Create the form for displaying the list of contacts.
+        layout = Layout([1], fill_frame=True)
+        self.add_layout(layout)
+        layout.add_widget(InputText("Input:", "input", on_change=self._input_changed))
+        layout.add_widget(TextBox(Widget.FILL_FRAME, "", "input"))
+        menu_layout = Layout([1, 1, 1, 1])
+        self.add_layout(menu_layout)
+        menu_layout.add_widget(Button("Cancel", self._cancel), 3)
+        self.fix()
+
+    def _input_changed(self):
+        pass
+
+
+    def reset(self):
+        # Do standard reset to clear out form, then populate with new data.
+        super(ContactView, self).reset()
+        self.data = self._model.get_current_contact()
+
+    @staticmethod
+    def _cancel():
+        raise StopApplication("User pressed quit")
+
+
+def demo(screen):
+    scenes = [
+        Scene([ContactView(screen, model)], -1, name="Edit Contact"),
+        # Scene([ListView(screen, model)], -1, name="Main"),
+    ]
+
+    screen.play(scenes)
+
+model = ContactModel()
+last_scene = None
+if __name__ == "__main__":
+    try:
+        Screen.wrapper(demo, catch_interrupt=False)
+        sys.exit(0)
+    except KeyboardInterrupt:
+        pass
