@@ -138,9 +138,9 @@ class InputText(Text):
                 self.value = ""
                 self.reset()
             else:
-                super().process_event(event)
+                return super().process_event(event)
         else:
-            super().process_event(event)
+            return super().process_event(event)
 
 
 class ContactView(Frame):
@@ -154,27 +154,23 @@ class ContactView(Frame):
         # Save off the model that accesses the contacts database.
         self._model = model
 
-        # Create the form for displaying the list of contacts.
-        layout = Layout([1], fill_frame=True)
-        self.add_layout(layout)
-        layout.add_widget(InputText("Input:", "input", on_change=self._input_changed))
-        layout.add_widget(TextBox(Widget.FILL_FRAME, "", "input"))
+        h, w = screen.dimensions
+        input_layout = Layout([1])
+        self.add_layout(input_layout)
+        input_layout.add_widget(InputText("Input:  ", "input"))
+
+        output_layout = Layout([1])
+        self.add_layout(output_layout)
+        output_layout.add_widget(TextBox(h - 4, "Output: ", "output"))
+
         menu_layout = Layout([1, 1, 1, 1])
         self.add_layout(menu_layout)
-        menu_layout.add_widget(Button("Cancel", self._cancel), 3)
+        menu_layout.add_widget(Button("Quit", self._quit), 3)  # 3 = 4th column
+
         self.fix()
 
-    def _input_changed(self):
-        pass
-
-
-    def reset(self):
-        # Do standard reset to clear out form, then populate with new data.
-        super(ContactView, self).reset()
-        self.data = self._model.get_current_contact()
-
     @staticmethod
-    def _cancel():
+    def _quit():
         raise StopApplication("User pressed quit")
 
 
