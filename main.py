@@ -174,19 +174,22 @@ class ContactView(Frame):
         raise StopApplication("User pressed quit")
 
 
-def demo(screen):
+def demo(screen, last_scene):
     scenes = [
         Scene([ContactView(screen, model)], -1, name="Edit Contact"),
         # Scene([ListView(screen, model)], -1, name="Main"),
     ]
 
-    screen.play(scenes)
+    screen.play(scenes, stop_on_resize=True, start_scene=last_scene)
 
 model = ContactModel()
 last_scene = None
 if __name__ == "__main__":
-    try:
-        Screen.wrapper(demo, catch_interrupt=False)
-        sys.exit(0)
-    except KeyboardInterrupt:
-        pass
+    while True:
+        try:
+            Screen.wrapper(demo, catch_interrupt=False, arguments=[last_scene])
+            sys.exit(0)
+        except KeyboardInterrupt:
+            pass
+        except ResizeScreenError as e:
+            last_scene = e.scene
