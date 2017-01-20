@@ -5,6 +5,7 @@ from asciimatics.exceptions import ResizeScreenError, NextScene, StopApplication
 from asciimatics.event import KeyboardEvent, MouseEvent
 import sys
 import sqlite3
+from time import sleep
 
 
 class ContactModel(object):
@@ -158,29 +159,40 @@ class ContactView(Frame):
         input_layout = Layout([1])
         self.add_layout(input_layout)
         input_layout.add_widget(InputText("Input:  ", "input"))
+        input_layout.add_widget(Divider())
 
         output_layout = Layout([1])
         self.add_layout(output_layout)
-        output_layout.add_widget(TextBox(h - 4, "Output: ", "output"))
+        self.output_box = TextBox(h - 5, "Output: ", "output")
+        self.output_box.disabled = True
+        output_layout.add_widget(self.output_box)
 
         menu_layout = Layout([1, 1, 1, 1])
         self.add_layout(menu_layout)
-        menu_layout.add_widget(Button("Quit", self._quit), 3)  # 3 = 4th column
+        menu_layout.add_widget(Button("Clear", self._clear), 0)
+        menu_layout.add_widget(Button("Quit", self._quit), 3)
+
+        self.palette['disabled'] = (7, 0, 0)
+        self.palette['edit_text'] = (7, 0, 0)
+        self.palette['focus_edit_text'] = (7, 0, 0)
 
         self.fix()
 
-    @staticmethod
-    def _quit():
+    def _clear(self):
+        pass
+        # self.output_box.value = [""]
+
+    def _quit(self):
         raise StopApplication("User pressed quit")
 
 
-def demo(screen, last_scene):
+def demo(screen, scene):
     scenes = [
         Scene([ContactView(screen, model)], -1, name="Edit Contact"),
         # Scene([ListView(screen, model)], -1, name="Main"),
     ]
 
-    screen.play(scenes, stop_on_resize=True, start_scene=last_scene)
+    screen.play(scenes, stop_on_resize=True, start_scene=scene)
 
 model = ContactModel()
 last_scene = None
@@ -190,6 +202,6 @@ if __name__ == "__main__":
             Screen.wrapper(demo, catch_interrupt=False, arguments=[last_scene])
             sys.exit(0)
         except KeyboardInterrupt:
-            pass
+            break
         except ResizeScreenError as e:
             last_scene = e.scene
