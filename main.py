@@ -6,7 +6,6 @@ from asciimatics.screen import Screen
 from asciimatics.exceptions import ResizeScreenError, NextScene, StopApplication
 from asciimatics.event import KeyboardEvent
 import sys
-import re
 import serial
 import threading
 from time import sleep
@@ -22,7 +21,7 @@ class SettingsModel(object):
 
     def __init__(self):
         self.splitting_char = '\n'
-        self.show_control_chars = True
+        self.show_control_chars = False
         self.send_nl = True
         self.send_cr = False
         self.log_to_file = False
@@ -204,7 +203,6 @@ if __name__ == "__main__":
         print()
         print("EX: python main.py /dev/ttyUSB0 9600")
     else:
-        sleep(5)
         g_port = sys.argv[1]
         g_baudrate = int(sys.argv[2])
 
