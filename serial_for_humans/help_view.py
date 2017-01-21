@@ -8,8 +8,11 @@ class HelpView(MyFrame):
 
     data = {
         'Help': [
-            "use Tab to navigate between buttons You may also use the mouse to click if you are a plebeian.",
+            "use Tab to navigate between buttons.",
+            "You may also use the mouse to click if you are a plebeian.",
             "Ctrl-C will also quit the application at any time.",
+            "Toggle checkboxes with the Enter key.",
+            "Select radio buttons with Up/Down arrows.",
         ]
     }
 

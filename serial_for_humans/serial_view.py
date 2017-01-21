@@ -50,8 +50,7 @@ class SerialView(MyFrame):
     def serial_worker(self, port, baudrate, serial_output_queue : queue.Queue):
         ser = serial.Serial(port, baudrate, timeout=0)
 
-        if self._model.data['log_to_file']:
-            f = open("serial.log", 'w')
+        f = None
         while True:
 
             while not serial_output_queue.empty():
@@ -64,8 +63,13 @@ class SerialView(MyFrame):
                 self._put_output(waiting_data)
 
                 if self._model.data['log_to_file']:
+                    if f is None:
+                        f = open("serial.log", 'w')
+
                     f.write(waiting_data)
                     f.flush()
+                elif f:
+                    f.close()
 
                 self.screen.force_update()
 

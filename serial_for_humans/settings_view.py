@@ -20,11 +20,26 @@ class SettingsView(MyFrame):
         # 'send_cr'
         # 'log_to_file'
 
-        settings_layout.add_widget(RadioButtons([("\\n", 0),
-                                        ("\\r\\n", 1)],
-                                       label="Split Line On:",
-                                       name="splitting_char",
-                                       on_change=self._on_change), 0)
+        settings_layout.add_widget(RadioButtons([("\\n", 0), ("\\r\\n", 1)],
+                                   label="Split Line On:",
+                                   name="splitting_char",
+                                   on_change=self._on_change))
+        settings_layout.add_widget(CheckBox('',
+                                            label="Send Line Feed (\\n)",
+                                            name="send_nl",
+                                            on_change=self._on_change))
+        settings_layout.add_widget(CheckBox('',
+                                            label="Send Carriage Return (\\r)",
+                                            name="send_cr",
+                                            on_change=self._on_change))
+        settings_layout.add_widget(CheckBox('',
+                                            label="Show Control Characters",
+                                            name="show_control_chars",
+                                            on_change=self._on_change))
+        settings_layout.add_widget(CheckBox('',
+                                            label="Log Serial To File",
+                                            name="log_to_file",
+                                            on_change=self._on_change))
 
         menu_layout = Layout([1, 1, 1, 1])
         self.add_layout(menu_layout)
@@ -54,7 +69,6 @@ class SettingsView(MyFrame):
     def _save(self):
         self.save()
         self._model.set_from_data_dict(self.data)
-        raise NextScene(name="Serial")
 
     @staticmethod
     def _close():
