@@ -10,7 +10,6 @@ class MyTextBox(TextBox):
             self.disabled = True
 
 
-
 class MyFrame(Frame):
 
     def __init__(self, screen, model, data=None):
@@ -29,6 +28,13 @@ class MyFrame(Frame):
         self.palette['focus_edit_text'] = (7, 0, 0)
         self.palette['button'] = (2, 0, 0)
         self.palette['focus_button'] = (2, 1, 0)
+        self.palette['control'] = (7, 0, 0)
+        self.palette['focus_control'] = (7, 0, 0)
+        self.palette['selected_focus_control'] = (7, 0, 0)
+        self.palette['field'] = (7, 0, 0)
+        self.palette['focus_field'] = (7, 0, 0)
+        self.palette['selected_field'] = (0, 0, 7)
+        self.palette['selected_focus_field'] = (0, 0, 7)
 
 
 class InputText(Text):

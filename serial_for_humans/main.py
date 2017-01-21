@@ -16,9 +16,9 @@ from settings_view import SettingsView
 
 def demo(screen, scene, model, serial_thread, serial_out_queue):
     scenes = [
-        Scene([HelpView(screen, model)], -1, name="Help"),
-        Scene([SerialView(screen, model, serial_thread, serial_out_queue)], -1, name="Serial"),
         Scene([SettingsView(screen, model)], -1, name="Settings"),
+        Scene([SerialView(screen, model, serial_thread, serial_out_queue)], -1, name="Serial"),
+        Scene([HelpView(screen, model)], -1, name="Help"),
     ]
 
     screen.play(scenes, stop_on_resize=True, start_scene=scene)
@@ -46,6 +46,7 @@ class App:
                 last_scene = e.scene
 
 if __name__ == "__main__":
+    # import time; time.sleep(10)
     if len(sys.argv) != 3:
         print("Usage: python main.py port_path baudrate")
         print()

@@ -6,8 +6,16 @@ class SettingsModel(object):
                   }
 
     def __init__(self):
-        self.splitting_char = '\n'
-        self.show_control_chars = False
-        self.send_nl = True
-        self.send_cr = False
-        self.log_to_file = False
+        self.data = {
+            'splitting_char': '\n',
+            'show_control_chars': False,
+            'send_nl': True,
+            'send_cr': False,
+            'log_to_file': False,
+        }
+
+    def get_as_data_dict(self):
+        return self.data
+
+    def set_from_data_dict(self, data):
+        self.data = data

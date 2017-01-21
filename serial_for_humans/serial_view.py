@@ -41,16 +41,16 @@ class SerialView(MyFrame):
         serial_thread.start()
 
     def _writer(self, message):
-        if self._model.send_cr:
+        if self._model.data['send_cr']:
             message += '\r'
-        if self._model.send_nl:
+        if self._model.data['send_nl']:
             message += '\n'
         self.serial_out_queue.put(message)
 
     def serial_worker(self, port, baudrate, serial_output_queue : queue.Queue):
         ser = serial.Serial(port, baudrate, timeout=0)
 
-        if self._model.log_to_file:
+        if self._model.data['log_to_file']:
             f = open("serial.log", 'w')
         while True:
 
@@ -63,7 +63,7 @@ class SerialView(MyFrame):
                 waiting_data = str(waiting_data, encoding='utf-8')
                 self._put_output(waiting_data)
 
-                if self._model.log_to_file:
+                if self._model.data['log_to_file']:
                     f.write(waiting_data)
                     f.flush()
 
@@ -80,9 +80,9 @@ class SerialView(MyFrame):
 
         for char in message:
             if char in SettingsModel.ctrl_chars.keys():
-                if self._model.show_control_chars:
+                if self._model.data['show_control_chars']:
                     self.output_box.value[-1] += SettingsModel.ctrl_chars[char]
-                if char == self._model.splitting_char:
+                if char == self._model.data['splitting_char']:
                     # actually create new line in output box
                     self.output_box.value += [""]
             else:
