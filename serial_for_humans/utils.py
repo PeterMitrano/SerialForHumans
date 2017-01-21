@@ -14,7 +14,7 @@ class MyFrame(Frame):
 
     def __init__(self, screen, model, data=None):
         super(MyFrame, self).__init__(screen, screen.height, screen.width, hover_focus=True,
-                                      has_border=False, reduce_cpu=False, data=data)
+                                      has_border=False, reduce_cpu=True, data=data)
         self._model = model
         self.screen = screen
 

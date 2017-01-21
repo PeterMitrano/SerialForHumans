@@ -24,6 +24,7 @@ class SerialView(MyFrame):
         self.add_layout(output_layout)
         self.output_box = TextBox(self.output_rows, "Output: ", "output")
         self.output_box.disabled = True
+        self.message_history = ""
         output_layout.add_widget(self.output_box)
         output_layout.add_widget(Divider())
 
@@ -73,7 +74,7 @@ class SerialView(MyFrame):
 
                 self.screen.force_update()
 
-            sleep(0)  # yield to thread scheduler
+            sleep(0.005)  # reduce CPU usage
 
     def _clear_output(self):
         self.output_box.value = None
@@ -82,15 +83,21 @@ class SerialView(MyFrame):
         if len(self.output_box.value) == 0:
             self.output_box.value = [""]
 
-        for char in message:
+        for idx, char in enumerate(message):
+
+            self.message_history += char
             if char in SettingsModel.ctrl_chars.keys():
                 if self._model.data['show_control_chars']:
                     self.output_box.value[-1] += SettingsModel.ctrl_chars[char]
-                if char == self._model.data['splitting_char']:
-                    # actually create new line in output box
-                    self.output_box.value += [""]
             else:
                 self.output_box.value[-1] += char
+
+            split_str = self._model.data['splitting_string']
+            latest_split_str_size_data = self.message_history[-len(split_str):]
+            if latest_split_str_size_data == split_str:
+                # actually create new line in output box
+                self.output_box.value += [""]
+
         self.output_box.reset()
 
     @staticmethod

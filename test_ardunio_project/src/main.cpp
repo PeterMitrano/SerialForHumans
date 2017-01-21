@@ -12,7 +12,7 @@ void setup() {
 
 void loop() {
   unsigned long now = millis();
-  if (now - last_heartbeat > 1000) {
+  if (now - last_heartbeat > 10) {
     last_heartbeat = now;
     Serial.println(i);
     i++;

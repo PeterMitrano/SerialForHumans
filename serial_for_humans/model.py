@@ -7,10 +7,10 @@ class SettingsModel(object):
 
     def __init__(self):
         self.data = {
-            'splitting_char': '\n',
-            'show_control_chars': False,
+            'splitting_string': '\r\n',
+            'show_control_chars': True,
             'send_nl': True,
-            'send_cr': False,
+            'send_cr': True,
             'log_to_file': False,
         }
 

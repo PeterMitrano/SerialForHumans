@@ -16,8 +16,8 @@ from settings_view import SettingsView
 
 def demo(screen, scene, model, serial_thread, serial_out_queue):
     scenes = [
-        Scene([SettingsView(screen, model)], -1, name="Settings"),
         Scene([SerialView(screen, model, serial_thread, serial_out_queue)], -1, name="Serial"),
+        Scene([SettingsView(screen, model)], -1, name="Settings"),
         Scene([HelpView(screen, model)], -1, name="Help"),
     ]
 
@@ -46,8 +46,10 @@ class App:
                 last_scene = e.scene
 
 if __name__ == "__main__":
-    # import time; time.sleep(10)
-    if len(sys.argv) != 3:
+    if '--debug' in sys.argv:
+        import time; time.sleep(10)
+
+    if len(sys.argv) < 3:
         print("Usage: python main.py port_path baudrate")
         print()
         print("EX: python main.py /dev/ttyUSB0 9600")

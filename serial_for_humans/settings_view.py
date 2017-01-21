@@ -1,5 +1,5 @@
 from asciimatics.exceptions import NextScene
-from asciimatics.widgets import Layout, Button, ListBox, CheckBox, RadioButtons
+from asciimatics.widgets import Layout, Button, CheckBox, RadioButtons
 
 from utils import MyFrame
 from model import SettingsModel
@@ -14,15 +14,10 @@ class SettingsView(MyFrame):
 
         settings_layout = Layout([100], fill_frame=True)
         self.add_layout(settings_layout)
-        # 'splitting_char'
-        # 'show_control_chars'
-        # 'send_nl'
-        # 'send_cr'
-        # 'log_to_file'
 
-        settings_layout.add_widget(RadioButtons([("\\n", 0), ("\\r\\n", 1)],
+        settings_layout.add_widget(RadioButtons([("\\n", '\n'), ("\\r\\n", '\r\n')],
                                    label="Split Line On:",
-                                   name="splitting_char",
+                                   name="splitting_string",
                                    on_change=self._on_change))
         settings_layout.add_widget(CheckBox('',
                                             label="Send Line Feed (\\n)",
