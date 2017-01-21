@@ -1,3 +1,5 @@
+#!/usr/bin/python3.5
+
 from asciimatics.widgets import Frame, Layout, Divider, Text, TextBox, Button
 from asciimatics.scene import Scene
 from asciimatics.screen import Screen
