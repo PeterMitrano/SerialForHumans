@@ -1,143 +1,66 @@
-from asciimatics.widgets import Frame, ListBox, Layout, Divider, Text, TextBox, Button, Widget
+from asciimatics.widgets import Frame, Layout, Divider, Text, TextBox, Button
 from asciimatics.scene import Scene
 from asciimatics.screen import Screen
 from asciimatics.exceptions import ResizeScreenError, NextScene, StopApplication
-from asciimatics.event import KeyboardEvent, MouseEvent
+from asciimatics.event import KeyboardEvent
 import sys
-import sqlite3
+import re
+import serial
+import threading
 from time import sleep
+import queue
 
 
-class ContactModel(object):
+class SettingsModel(object):
+
+    ctrl_chars = {'\n': '\\n',
+                  '\r': '\\r',
+                  '\t': '\\t',
+                  }
+
     def __init__(self):
-        # Create a database in RAM
-        self._db = sqlite3.connect(':memory:')
-        self._db.row_factory = sqlite3.Row
-
-        # Create the basic contact table.
-        self._db.cursor().execute('''
-            CREATE TABLE contacts(
-                id INTEGER PRIMARY KEY,
-                name TEXT,
-                phone TEXT,
-                address TEXT,
-                email TEXT,
-                notes TEXT)
-        ''')
-        self._db.commit()
-
-        # Current contact when editing.
-        self.current_id = None
-
-    def add(self, contact):
-        self._db.cursor().execute('''
-            INSERT INTO contacts(name, phone, address, email, notes)
-            VALUES(:name, :phone, :address, :email, :notes)''',
-                                  contact)
-        self._db.commit()
-
-    def get_summary(self):
-        return self._db.cursor().execute(
-            "SELECT name, id from contacts").fetchall()
-
-    def get_contact(self, contact_id):
-        return self._db.cursor().execute(
-            "SELECT * from contacts where id=?", str(contact_id)).fetchone()
-
-    def get_current_contact(self):
-        if self.current_id is None:
-            return {}
-        else:
-            return self.get_contact(self.current_id)
-
-    def update_current_contact(self, details):
-        if self.current_id is None:
-            self.add(details)
-        else:
-            self._db.cursor().execute('''
-                UPDATE contacts SET name=:name, phone=:phone, address=:address,
-                email=:email, notes=:notes WHERE id=:id''',
-                                      details)
-            self._db.commit()
-
-    def delete_contact(self, contact_id):
-        self._db.cursor().execute('''
-            DELETE FROM contacts WHERE id=:id''', {"id": contact_id})
-        self._db.commit()
+        self.splitting_char = '\n'
+        self.show_control_chars = True
+        self.send_nl = True
+        self.send_cr = False
+        self.log_to_file = False
 
 
-class ListView(Frame):
+class SettingsView(Frame):
     def __init__(self, screen, model):
-        super(ListView, self).__init__(screen,
-                                       screen.height * 2 // 3,
-                                       screen.width * 2 // 3,
-                                       on_load=self._reload_list,
-                                       hover_focus=True,
-                                       title="Contact List")
+        super(SettingsView, self).__init__(screen,
+                                           screen.height * 2 // 3,
+                                           screen.width * 2 // 3,
+                                           hover_focus=True,
+                                           title="Settings")
         # Save off the model that accesses the contacts database.
         self._model = model
 
-        # Create the form for displaying the list of contacts.
-        self._list_view = ListBox(
-            Widget.FILL_FRAME,
-            model.get_summary(),
-            name="contacts",
-            on_change=self._on_pick)
-        self._edit_button = Button("Edit", self._edit)
-        self._delete_button = Button("Delete", self._delete)
-        layout = Layout([100], fill_frame=True)
+        layout = Layout([1, 1, 1, 1])
         self.add_layout(layout)
-        layout.add_widget(self._list_view)
-        layout.add_widget(Divider())
-        layout2 = Layout([1, 1, 1, 1])
-        self.add_layout(layout2)
-        layout2.add_widget(Button("Add", self._add), 0)
-        layout2.add_widget(self._edit_button, 1)
-        layout2.add_widget(self._delete_button, 2)
-        layout2.add_widget(Button("Quit", self._quit), 3)
+        layout.add_widget(Button("Quit", self._quit), 3)
         self.fix()
-        self._on_pick()
-
-    def _on_pick(self):
-        self._edit_button.disabled = self._list_view.value is None
-        self._delete_button.disabled = self._list_view.value is None
-
-    def _reload_list(self):
-        self._list_view.options = self._model.get_summary()
-        self._model.current_id = None
-
-    def _add(self):
-        self._model.current_id = None
-        raise NextScene("Edit Contact")
-
-    def _edit(self):
-        self.save()
-        self._model.current_id = self.data["contacts"]
-        raise NextScene("Edit Contact")
-
-    def _delete(self):
-        self.save()
-        self._model.delete_contact(self.data["contacts"])
-        self._reload_list()
 
     @staticmethod
     def _quit():
-        raise StopApplication("User pressed quit")
+        raise NextScene(name="Main")
 
 
 class InputText(Text):
 
     KEY_ENTER = 10
 
-    def __init__(self, label=None, name=None, on_change=None):
+    def __init__(self, writer, label=None, name=None, on_change=None):
         super(InputText, self).__init__(label, name, on_change)
+        self.writer = writer
 
     def process_event(self, event):
         if isinstance(event, KeyboardEvent):
             if event.key_code == InputText.KEY_ENTER:
-                # ser.write(self.value)
+                message_to_write = self.value
                 self.value = ""
                 self.reset()
+                self.writer(message_to_write)
             else:
                 return super().process_event(event)
         else:
@@ -145,31 +68,34 @@ class InputText(Text):
 
 
 class ContactView(Frame):
-    def __init__(self, screen, model):
+    def __init__(self, screen, model, serial_thread, serial_out_queue):
         super(ContactView, self).__init__(screen,
                                           screen.height,
                                           screen.width,
                                           hover_focus=True,
                                           title="Serial For Humans",
-                                          reduce_cpu=True)
+                                          reduce_cpu=False)
         # Save off the model that accesses the contacts database.
         self._model = model
+        self.screen = screen
 
-        h, w = screen.dimensions
+        h, w = self.screen.dimensions
+        self.output_rows = h - 5
         input_layout = Layout([1])
         self.add_layout(input_layout)
-        input_layout.add_widget(InputText("Input:  ", "input"))
+        input_layout.add_widget(InputText(self._writer, "Input:  ", "input"))
         input_layout.add_widget(Divider())
 
         output_layout = Layout([1])
         self.add_layout(output_layout)
-        self.output_box = TextBox(h - 5, "Output: ", "output")
+        self.output_box = TextBox(self.output_rows, "Output: ", "output")
         self.output_box.disabled = True
         output_layout.add_widget(self.output_box)
 
         menu_layout = Layout([1, 1, 1, 1])
         self.add_layout(menu_layout)
-        menu_layout.add_widget(Button("Clear", self._clear), 0)
+        menu_layout.add_widget(Button("Clear", self._clear_output), 0)
+        menu_layout.add_widget(Button("Settings", self._settings), 1)
         menu_layout.add_widget(Button("Quit", self._quit), 3)
 
         self.palette['disabled'] = (7, 0, 0)
@@ -178,30 +104,107 @@ class ContactView(Frame):
 
         self.fix()
 
-    def _clear(self):
-        pass
-        # self.output_box.value = [""]
+        self.serial_out_queue = serial_out_queue
+        serial_thread._target = self.serial_worker
+        serial_thread.start()
 
-    def _quit(self):
+    def _writer(self, message):
+        if self._model.send_cr:
+            message += '\r'
+        if self._model.send_nl:
+            message += '\n'
+        self.serial_out_queue.put(message)
+
+    def serial_worker(self, port, baudrate, serial_output_queue : queue.Queue):
+        ser = serial.Serial(port, baudrate, timeout=0)
+
+        if self._model.log_to_file:
+            f = open("serial.log", 'w')
+        while True:
+
+            while not serial_output_queue.empty():
+                msg = serial_output_queue.get().encode()
+                ser.write(msg)
+
+            if ser.in_waiting > 0:
+                waiting_data = ser.read(ser.in_waiting)
+                waiting_data = str(waiting_data, encoding='utf-8')
+                self._put_output(waiting_data)
+
+                if self._model.log_to_file:
+                    f.write(waiting_data)
+                    f.flush()
+
+                self.screen.force_update()
+
+            sleep(0)  # yield to thread scheduler
+
+    @staticmethod
+    def _settings():
+        raise NextScene(name="Settings")
+
+    def _clear_output(self):
+        self.output_box.value = None
+
+    def _put_output(self, message):
+        if len(self.output_box.value) == 0:
+            self.output_box.value = [""]
+
+        for char in message:
+            if char in SettingsModel.ctrl_chars.keys():
+                if self._model.show_control_chars:
+                    self.output_box.value[-1] += SettingsModel.ctrl_chars[char]
+                if char == self._model.splitting_char:
+                    # actually create new line in output box
+                    self.output_box.value += [""]
+            else:
+                self.output_box.value[-1] += char
+        self.output_box.reset()
+
+    @staticmethod
+    def _quit():
         raise StopApplication("User pressed quit")
 
 
-def demo(screen, scene):
+def demo(screen, scene, model, serial_thread, serial_out_queue):
     scenes = [
-        Scene([ContactView(screen, model)], -1, name="Edit Contact"),
-        # Scene([ListView(screen, model)], -1, name="Main"),
+        Scene([ContactView(screen, model, serial_thread, serial_out_queue)], -1, name="Main"),
+        Scene([SettingsView(screen, model)], -1, name="Settings"),
     ]
 
     screen.play(scenes, stop_on_resize=True, start_scene=scene)
 
-model = ContactModel()
-last_scene = None
+
+class App:
+
+    def __init__(self):
+        self.model = SettingsModel()
+
+    def run(self, port, baudrate):
+        # don't assign target yet!
+
+        last_scene = None
+        serial_out_q = queue.Queue()
+        while True:
+            try:
+                serial_thread = threading.Thread(target=None, args=(port, baudrate, serial_out_q), daemon=True)
+                Screen.wrapper(demo, catch_interrupt=False,
+                               arguments=[last_scene, self.model, serial_thread, serial_out_q])
+                sys.exit(0)
+            except KeyboardInterrupt:
+                break
+            except ResizeScreenError as e:
+                last_scene = e.scene
+
 if __name__ == "__main__":
-    while True:
-        try:
-            Screen.wrapper(demo, catch_interrupt=False, arguments=[last_scene])
-            sys.exit(0)
-        except KeyboardInterrupt:
-            break
-        except ResizeScreenError as e:
-            last_scene = e.scene
+    if len(sys.argv) != 3:
+        print("Usage: python main.py port_path baudrate")
+        print()
+        print("EX: python main.py /dev/ttyUSB0 9600")
+    else:
+        sleep(5)
+        g_port = sys.argv[1]
+        g_baudrate = int(sys.argv[2])
+
+        app = App()
+        app.run(g_port, g_baudrate)
