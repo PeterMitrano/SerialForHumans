@@ -29,12 +29,12 @@ class App:
     def __init__(self):
         self.model = SettingsModel()
 
-    def run(self, serial):
+    def run(self, serial_class, port, baudrate):
         last_scene = None
         serial_out_q = queue.Queue()
         while True:
             try:
-                serial_thread = threading.Thread(target=None, args=(serial, serial_out_q), daemon=True)
+                serial_thread = threading.Thread(target=None, args=(serial_class, port, baudrate, serial_out_q), daemon=True)
                 Screen.wrapper(demo, catch_interrupt=False,
                                arguments=[last_scene, self.model, serial_thread, serial_out_q])
                 break

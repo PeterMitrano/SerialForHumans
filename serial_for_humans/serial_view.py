@@ -1,4 +1,5 @@
 import queue
+import serial
 from time import sleep
 
 from asciimatics.exceptions import StopApplication, NextScene
@@ -47,38 +48,49 @@ class SerialView(MyFrame):
             message += '\n'
         self.serial_out_queue.put(message)
 
-    def serial_worker(self, serial, serial_output_queue):
+    def serial_worker(self, serial_class, port, baudrate, serial_output_queue):
+        while True:
+            try:
+                # check for serial device
+                serial_obj = serial_class(port, baudrate)
+            except serial.serialutil.SerialException:
+                # wait a bit and check again
+                sleep(2)
+                continue
 
-        try:
-            f = None
-            while True:
+            try:
+                f = None
+                while True:
 
-                while not serial_output_queue.empty():
-                    msg = serial_output_queue.get().encode()
-                    serial.write(msg)
+                    while not serial_output_queue.empty():
+                        msg = serial_output_queue.get().encode()
+                        serial_obj.write(msg)
 
-                if serial.in_waiting > 0:
-                    waiting_data = serial.read(serial.in_waiting)
-                    try:
-                        waiting_data = str(waiting_data, encoding='utf-8')
-                    except UnicodeDecodeError:
-                        continue
-                    self._put_output(waiting_data)
+                    if serial_obj.in_waiting > 0:
+                        waiting_data = serial_obj.read(serial_obj.in_waiting)
+                        try:
+                            waiting_data = str(waiting_data, encoding='utf-8')
+                        except UnicodeDecodeError:
+                            continue
+                        self._put_output(waiting_data)
 
-                    if self._model.data['log_to_file']:
-                        if f is None:
-                            f = open("serial.log", 'w')
+                        if self._model.data['log_to_file']:
+                            if f is None:
+                                f = open("serial.log", 'w')
 
-                        f.write(waiting_data)
-                        f.flush()
-                    elif f:
-                        f.close()
+                            f.write(waiting_data)
+                            f.flush()
+                        elif f:
+                            f.close()
 
-                    self.screen.force_update()
+                        self.screen.force_update()
 
-                sleep(0.005)  # reduce CPU usage
-        except OSError:
-            return
+                    sleep(0.005)  # reduce CPU usage
+            except OSError:
+                # this means the device was unplugged
+                serial_obj.close()
+                continue
+
 
     def _clear_output(self):
         self._model.serial_output = [""]
