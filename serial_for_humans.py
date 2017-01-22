@@ -19,5 +19,9 @@ if __name__ == '__main__':
         baudrate = int(sys.argv[2])
 
         app = App()
-        serial = serial.Serial(port, baudrate, timeout=0)
-        app.run(serial)
+        try:
+            serial = serial.Serial(port, baudrate, timeout=0)
+            app.run(serial)
+        except serial.serialutil.SerialException:
+            print("Device not found: ", port)
+            print("Do you have the right port number?")

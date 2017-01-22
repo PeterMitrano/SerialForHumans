@@ -49,33 +49,36 @@ class SerialView(MyFrame):
 
     def serial_worker(self, serial, serial_output_queue):
 
-        f = None
-        while True:
+        try:
+            f = None
+            while True:
 
-            while not serial_output_queue.empty():
-                msg = serial_output_queue.get().encode()
-                serial.write(msg)
+                while not serial_output_queue.empty():
+                    msg = serial_output_queue.get().encode()
+                    serial.write(msg)
 
-            if serial.in_waiting > 0:
-                waiting_data = serial.read(serial.in_waiting)
-                try:
-                    waiting_data = str(waiting_data, encoding='utf-8')
-                except UnicodeDecodeError:
-                    continue
-                self._put_output(waiting_data)
+                if serial.in_waiting > 0:
+                    waiting_data = serial.read(serial.in_waiting)
+                    try:
+                        waiting_data = str(waiting_data, encoding='utf-8')
+                    except UnicodeDecodeError:
+                        continue
+                    self._put_output(waiting_data)
 
-                if self._model.data['log_to_file']:
-                    if f is None:
-                        f = open("serial.log", 'w')
+                    if self._model.data['log_to_file']:
+                        if f is None:
+                            f = open("serial.log", 'w')
 
-                    f.write(waiting_data)
-                    f.flush()
-                elif f:
-                    f.close()
+                        f.write(waiting_data)
+                        f.flush()
+                    elif f:
+                        f.close()
 
-                self.screen.force_update()
+                    self.screen.force_update()
 
-            sleep(0.005)  # reduce CPU usage
+                sleep(0.005)  # reduce CPU usage
+        except OSError:
+            return
 
     def _clear_output(self):
         self._model.serial_output = [""]

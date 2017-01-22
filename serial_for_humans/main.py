@@ -37,7 +37,7 @@ class App:
                 serial_thread = threading.Thread(target=None, args=(serial, serial_out_q), daemon=True)
                 Screen.wrapper(demo, catch_interrupt=False,
                                arguments=[last_scene, self.model, serial_thread, serial_out_q])
-                sys.exit(0)
+                break
             except KeyboardInterrupt:
                 break
             except ResizeScreenError as e:
