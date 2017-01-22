@@ -6,6 +6,7 @@ class SettingsModel(object):
                   }
 
     def __init__(self):
+        self.serial_output = []
         self.data = {
             'splitting_string': '\r\n',
             'show_control_chars': True,

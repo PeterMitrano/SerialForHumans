@@ -1,12 +1,11 @@
 import queue
 from time import sleep
 
-import serial
 from asciimatics.exceptions import StopApplication, NextScene
 from asciimatics.widgets import Layout, Divider, TextBox, Button
 
-from model import SettingsModel
-from utils import MyFrame, InputText
+from .model import SettingsModel
+from .utils import MyFrame, InputText
 
 
 class SerialView(MyFrame):
@@ -48,18 +47,17 @@ class SerialView(MyFrame):
             message += '\n'
         self.serial_out_queue.put(message)
 
-    def serial_worker(self, port, baudrate, serial_output_queue : queue.Queue):
-        ser = serial.Serial(port, baudrate, timeout=0)
+    def serial_worker(self, serial, serial_output_queue):
 
         f = None
         while True:
 
             while not serial_output_queue.empty():
                 msg = serial_output_queue.get().encode()
-                ser.write(msg)
+                serial.write(msg)
 
-            if ser.in_waiting > 0:
-                waiting_data = ser.read(ser.in_waiting)
+            if serial.in_waiting > 0:
+                waiting_data = serial.read(serial.in_waiting)
                 waiting_data = str(waiting_data, encoding='utf-8')
                 self._put_output(waiting_data)
 
@@ -77,27 +75,30 @@ class SerialView(MyFrame):
             sleep(0.005)  # reduce CPU usage
 
     def _clear_output(self):
-        self.output_box.value = None
+        self._model.serial_output = [""]
+        self.output_box.value = self._model.serial_output
+        self.output_box.reset()
 
     def _put_output(self, message):
         if len(self.output_box.value) == 0:
-            self.output_box.value = [""]
+            self._model.serial_output = [""]
 
         for idx, char in enumerate(message):
 
             self.message_history += char
             if char in SettingsModel.ctrl_chars.keys():
                 if self._model.data['show_control_chars']:
-                    self.output_box.value[-1] += SettingsModel.ctrl_chars[char]
+                    self._model.serial_output[-1] += SettingsModel.ctrl_chars[char]
             else:
-                self.output_box.value[-1] += char
+                self._model.serial_output[-1] += char
 
             split_str = self._model.data['splitting_string']
             latest_split_str_size_data = self.message_history[-len(split_str):]
             if latest_split_str_size_data == split_str:
-                # actually create new line in output box
-                self.output_box.value += [""]
+                # actually create new line
+                self._model.serial_output += [""]
 
+        self.output_box.value = self._model.serial_output
         self.output_box.reset()
 
     @staticmethod

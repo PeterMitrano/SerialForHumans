@@ -1,7 +1,7 @@
 from asciimatics.exceptions import NextScene
 from asciimatics.widgets import Layout, Button, Divider, TextBox
 
-from utils import MyFrame
+from .utils import MyFrame
 
 
 class HelpView(MyFrame):

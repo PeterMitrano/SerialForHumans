@@ -1,8 +1,8 @@
 from asciimatics.exceptions import NextScene
 from asciimatics.widgets import Layout, Button, CheckBox, RadioButtons
 
-from utils import MyFrame
-from model import SettingsModel
+from .utils import MyFrame
+from .model import SettingsModel
 
 
 class SettingsView(MyFrame):
