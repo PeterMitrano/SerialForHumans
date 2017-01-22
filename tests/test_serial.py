@@ -5,7 +5,7 @@ from serial_for_humans.main import App
 class MockSerial:
 
     def __init__(self):
-        pass
+        self.in_waiting = 0
 
     def read(self, num_bytes):
         pass

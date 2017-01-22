@@ -58,7 +58,10 @@ class SerialView(MyFrame):
 
             if serial.in_waiting > 0:
                 waiting_data = serial.read(serial.in_waiting)
-                waiting_data = str(waiting_data, encoding='utf-8')
+                try:
+                    waiting_data = str(waiting_data, encoding='utf-8')
+                except UnicodeDecodeError:
+                    continue
                 self._put_output(waiting_data)
 
                 if self._model.data['log_to_file']:
